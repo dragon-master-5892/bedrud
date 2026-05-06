@@ -48,6 +48,9 @@ func RunMigrations() error {
 	if err := db.AutoMigrate(&models.UserPreferences{}); err != nil {
 		return err
 	}
+	if err := db.AutoMigrate(&models.PasswordResetToken{}); err != nil {
+		return err
+	}
 
 	// Add foreign key constraints manually (idempotent, Postgres only)
 	// SQLite does not support ALTER TABLE ADD CONSTRAINT for composite FKs.

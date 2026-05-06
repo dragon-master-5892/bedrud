@@ -18,6 +18,7 @@ type Config struct {
 	Logger   LoggerConfig   `yaml:"logger"`
 	Cors     CorsConfig     `yaml:"cors"`
 	Chat     ChatConfig     `yaml:"chat"`
+	Email    EmailConfig    `yaml:"email"`
 }
 
 type ServerConfig struct {
@@ -73,6 +74,23 @@ type AuthConfig struct {
 	Twitter       OAuth2Config `yaml:"twitter"`
 	FrontendURL   string       `yaml:"frontendURL"`
 	SessionSecret string       `yaml:"sessionSecret"`
+	// PasswordResetTTLMinutes is how long an emailed reset link stays
+	// valid. Defaults to 30 minutes when zero or unset.
+	PasswordResetTTLMinutes int `yaml:"passwordResetTTLMinutes"`
+}
+
+// EmailConfig holds outbound transactional email settings. When Host is
+// empty the application falls back to a logging mailer that records the
+// reset link instead of sending it — useful for local dev, but not for
+// production.
+type EmailConfig struct {
+	Host      string `yaml:"host" env:"EMAIL_HOST"`
+	Port      int    `yaml:"port" env:"EMAIL_PORT"`
+	Username  string `yaml:"username" env:"EMAIL_USERNAME"`
+	Password  string `yaml:"password" env:"EMAIL_PASSWORD"`
+	FromEmail string `yaml:"fromEmail" env:"EMAIL_FROM_EMAIL"`
+	FromName  string `yaml:"fromName" env:"EMAIL_FROM_NAME"`
+	StartTLS  bool   `yaml:"startTLS" env:"EMAIL_STARTTLS"`
 }
 
 type OAuth2Config struct {
@@ -231,6 +249,38 @@ func Load(configPath string) (*Config, error) {
 		}
 		if frontendURL := os.Getenv("AUTH_FRONTEND_URL"); frontendURL != "" {
 			config.Auth.FrontendURL = frontendURL
+		}
+		if ttl := os.Getenv("AUTH_PASSWORD_RESET_TTL_MINUTES"); ttl != "" {
+			if i, err := strconv.Atoi(ttl); err == nil {
+				config.Auth.PasswordResetTTLMinutes = i
+			}
+		}
+
+		// Email / SMTP overrides
+		if v := os.Getenv("EMAIL_HOST"); v != "" {
+			config.Email.Host = v
+		}
+		if v := os.Getenv("EMAIL_PORT"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil {
+				config.Email.Port = i
+			}
+		}
+		if v := os.Getenv("EMAIL_USERNAME"); v != "" {
+			config.Email.Username = v
+		}
+		if v := os.Getenv("EMAIL_PASSWORD"); v != "" {
+			config.Email.Password = v
+		}
+		if v := os.Getenv("EMAIL_FROM_EMAIL"); v != "" {
+			config.Email.FromEmail = v
+		}
+		if v := os.Getenv("EMAIL_FROM_NAME"); v != "" {
+			config.Email.FromName = v
+		}
+		if v := os.Getenv("EMAIL_STARTTLS"); v != "" {
+			if b, err := strconv.ParseBool(v); err == nil {
+				config.Email.StartTLS = b
+			}
 		}
 
 		// CORS environment variable overrides

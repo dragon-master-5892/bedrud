@@ -25,6 +25,9 @@ auth:
   sessionSecret: "CHANGE_ME_32_CHAR_RANDOM_STRING"
   tokenDuration: 24
   frontendURL: "http://localhost:8090"
+  # How long an emailed password-reset link stays valid. Defaults to 30
+  # when zero or unset.
+  passwordResetTTLMinutes: 30
   google:
     clientId: "CHANGE_ME_GOOGLE_CLIENT_ID"
     clientSecret: "CHANGE_ME_GOOGLE_CLIENT_SECRET"
@@ -43,3 +46,15 @@ cors:
   allowedHeaders: "Origin, Content-Type, Accept, Authorization"
   allowedMethods: "GET, POST, PUT, DELETE, OPTIONS"
   allowCredentials: true
+
+# Outbound transactional email (used today for password-reset links).
+# Leave host empty for local dev — the server falls back to a logging
+# mailer that records the link instead of sending it.
+email:
+  host: ""              # e.g. "smtp.sendgrid.net"
+  port: 587
+  username: ""          # e.g. "apikey"
+  password: ""          # SMTP password / API key
+  fromEmail: "no-reply@bedrud.local"
+  fromName: "Bedrud"
+  startTLS: true

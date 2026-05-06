@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bedrud/config"
+	"bedrud/internal/email"
 	"bedrud/internal/models"
 	"bedrud/internal/repository"
 	"crypto/rand"
@@ -66,6 +67,14 @@ type TokenPair struct {
 type AuthService struct {
 	userRepo    *repository.UserRepository
 	passkeyRepo *repository.PasskeyRepository
+
+	// Optional dependencies for the password-reset flow. Wired by
+	// ConfigurePasswordReset in password_reset.go; left nil when the
+	// feature is not configured (e.g. in tests that don't exercise it).
+	resetTokenRepo   *repository.PasswordResetTokenRepository
+	mailer           email.Mailer
+	resetTokenTTL    time.Duration
+	resetFrontendURL string
 }
 
 func NewAuthService(userRepo *repository.UserRepository, passkeyRepo *repository.PasskeyRepository) *AuthService {
