@@ -20,6 +20,7 @@ import (
 	"bedrud/config"
 	"bedrud/internal/auth"
 	"bedrud/internal/database"
+	"bedrud/internal/email"
 	"bedrud/internal/handlers"
 	"bedrud/internal/middleware"
 	"bedrud/internal/models"
@@ -202,6 +203,7 @@ func run() error {
 			auth.ReloadProviders(effective)
 		}
 	inviteTokenRepo := repository.NewInviteTokenRepository(database.GetDB())
+	passwordResetRepo := repository.NewPasswordResetTokenRepository(database.GetDB())
 
 	scheduler.Initialize(roomRepo, &cfg.LiveKit)
 	defer scheduler.Stop()
@@ -221,6 +223,37 @@ func run() error {
 	// Services
 	// ===============================
 	authService := auth.NewAuthService(userRepo, passkeyRepo)
+
+	// Password-reset flow: build a Mailer (SMTP if EMAIL_HOST is set,
+	// LogMailer otherwise) and wire it onto the auth service. The TTL
+	// defaults to 30 minutes when the operator hasn't picked one.
+	resetTTL := time.Duration(cfg.Auth.PasswordResetTTLMinutes) * time.Minute
+	if resetTTL <= 0 {
+		resetTTL = 30 * time.Minute
+	}
+	mailer := email.NewMailer(email.Config{
+		Host:        cfg.Email.Host,
+		Port:        cfg.Email.Port,
+		Username:    cfg.Email.Username,
+		Password:    cfg.Email.Password,
+		FromEmail:   cfg.Email.FromEmail,
+		FromName:    cfg.Email.FromName,
+		StartTLS:    cfg.Email.StartTLS,
+		AppName:     "Bedrud",
+		FrontendURL: cfg.Auth.FrontendURL,
+	})
+	authService.ConfigurePasswordReset(passwordResetRepo, mailer, resetTTL, cfg.Auth.FrontendURL)
+
+	// Periodically prune used / expired password reset tokens.
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := passwordResetRepo.CleanupExpired(); err != nil {
+				log.Error().Err(err).Msg("Failed to cleanup expired password reset tokens")
+			}
+		}
+	}()
 
 	// ===============================
 	// Middleware
@@ -281,6 +314,8 @@ func run() error {
 	api.Get("/auth/me", middleware.Protected(), authHandler.GetMe)
 	api.Put("/auth/me", middleware.Protected(), authHandler.UpdateProfile)
 	api.Put("/auth/password", middleware.Protected(), authHandler.ChangePassword)
+	api.Post("/auth/forgot-password", middleware.AuthRateLimiter(), authHandler.ForgotPassword)
+	api.Post("/auth/reset-password", middleware.AuthRateLimiter(), authHandler.ResetPassword)
 	api.Get("/auth/:provider/login", handlers.BeginAuthHandler)
 	api.Get("/auth/:provider/callback", authHandler.CallbackHandler)
 

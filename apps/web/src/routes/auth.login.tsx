@@ -149,6 +149,12 @@ function LoginPage() {
             <label htmlFor="password" className="text-sm font-medium">
               Password
             </label>
+            <Link
+              to="/auth/forgot-password"
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Forgot?
+            </Link>
           </div>
           <div className="relative">
             <Input
